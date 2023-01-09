@@ -1,0 +1,148 @@
+---
+title: "hw12"
+author: "Zhuoyu Jiang"
+date: "12/6/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1
+## a.
+Since the time period is 8 am to 9 am, t=1
+Count 225 car crossing the bridge, n=225
+```{R}
+alpha<-0.05
+n<-225
+t<-1
+lambda.hat<-n/t
+lambda.hat+qnorm(p=c(alpha/2,1-alpha/2))*sqrt(lambda.hat/n)
+```
+Thus, with 95% confidence interval, the confident interval for the true mean car for this time period is between 223.04 and 226.96.
+
+## b.
+The observation and prediction results in one time period are difficult to be extended to other time periods, and more researches should be taken, which increases the research cost. The variance (which is same as $\lambda$) of the observation data would be very large, and the true confidence interval would be even wider.
+
+
+
+# Question 2
+## a.
+Time of day: Normally, the rush hour happens twice every weekday: once in the morning and once in the afternoon or evening, the times during which the most people commute. During the rush hour, the number of cars stopped at the intersection would increase.
+
+Day of the week: People tend to have long travel on weekends, the number of cars stopped at the intersection would increase on weekdens.
+
+Whether school in session: Normally, during school in session, cars share the roads once more with buses and students, and more congestion on the roads. Thus, the number of cars stopped at the intersection would increase.
+
+When designing the experiment, it can be considered to do eight experiments: 
+the rush hour of weekends while school in session, 
+the valley hour of weekends while school in session, 
+the rush hour of one weekday while school in session, 
+the valley hour of one weekday while school in session, 
+the rush hour of weekends while school not in session, 
+the valley hour of weekends while school not in session, 
+the rush hour of one weekday while school not in session, 
+the valley hour of one weekday while school not in session.
+and the result would be representative.
+
+## b.
+This is not a true Poisson process because the arrivals are not independent of one another. Even for bus systems that do not run on time, whether or not one bus is late affects the arrival time of the next bus.
+Thus, we should consider:
+1. The number of cars that arrive at the intersection can be counted.
+2. The arrival of one car does not affect the arrival of another car.
+3. We can easily collect data on the average number of cars that arrive the intersection.
+4. Two cars cannot occur at exactly the same instant in time.
+
+## c.
+$$P(k\ events\ in\ time\ period)=e^{-\lambda*\frac{\lambda^k}{k!}}$$
+```{R}
+library(readr)
+Stoplight <- read_csv("~/Downloads/Stoplight.csv")
+k<-9:15
+lambda<-mean(Stoplight$vehicles)
+1-ppois(8,lambda = lambda)
+```
+During 3:25pm to 4:05 pm on a non-holiday weekday, the probability of more than 9 vehicles showing in one stoplight cycle is 0.01786982.
+
+## d.
+```{R}
+p<-0.01786982
+n<-60
+1-pbinom(0, size=n, prob=p) 
+```
+The probability that the fire station's driveway is at least partially blocked at least once over 60 cycles of the light is 0.6610439.
+
+
+# Question 3
+$$\mu_i=exp(\beta_0+\beta_1X_{i1}+...+\beta_pX_{ip})$$
+Adding the function to the equation in 4.1.1
+$$L(\beta;y,x)=\prod_{i=0}^n\frac{e^{-exp(x_i\beta)}exp(x_i\beta)^{y_i}}{y_i!}$$
+Deriving it,
+$$l(\beta)=\sum_{i=0}^ny_ix_i\beta-\sum_{i=0}^nexp(x_i\beta)-\sum_{i=0}^nlog(y_i!)$$
+
+
+
+# Question 4
+## a.
+```{R}
+dt <- read_csv("~/Desktop/dt.csv")
+model.fit.dt <- glm(ofp~hosp+numchron+gender+school+privins+health_excellent+health_poor, family="poisson", data=dt)
+summary(model.fit.dt)
+```
+The Poisson regression model is $$exp(ofp)=1.028874+0.164797*hosp+0.146639*numchron-0.112320*gender+0.026143*school+0.201687*privins-0.361993*health_excellent+0.248307*health_poor$$
+
+
+## b.
+The coefficient of hospital stay is 0.164797, and $e^{0.164797}>1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is 0.164797 times larger than when hospital stay is 0.
+
+The coefficient of number of chronic conditions is 0.146639, and $e^{0.146639}>1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(0.14663) times larger than when number of chronic conditions is 0.
+
+The coefficient of gender is -0.112320, and $e^{-0.112320}<1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(-0.112320) times smaller than when gender is 0.
+
+The coefficient of school is 0.026143, and $e^{0.026143}>1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(0.026143) times larger than when school is 0.
+
+The coefficient of private insurance is 0.201687, and $e^{0.201687}>1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(0.201687) times larger than when private insurance is 0.
+
+The coefficient of health_excellent is -0.361993, and $e^{-0.361993}<1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(-0.361993) times smaller than when health_excellent is 0.
+
+The coefficient of health_poor is 0.248307, and $e^{0.248307}<1$. The expected count $\mu = E(office\ visit\ for \ a \ person)$ is exp(0.248307) times larger than when health_poor is 0.
+
+
+## c.
+```{R}
+data1=dt[which(dt$ofp==0),]
+data1
+```
+The reason why so many zero-visit counts in the data is because the probability of being ill is relatively low, and people choose not to take a physician office visit while the diease is not serious.
+
+
+# Question 5
+```{R}
+p<-data.frame("Years"=c(12,12,32,20,20,27,23,19,23,26,21,3,8,35,2,19,8,25,33,35),"Salamanders"=c(3,4,8,6,10,5,4,7,2,8,6,0,2,6,1,5,1,5,4,10))
+model.fit <- glm(Salamanders~Years, family="poisson", data=p)
+summary(model.fit)
+```
+The Possion regression model is $Salamenders=e^{0.59136 +0.04451*Years after burn}$. The coefficient of years after burn is 0.0445, and $e^{0.0445}>1$. The expected count $\mu = E(the number of salamanders)$ is 1.045518 times larger than when years after burn is 0.
+
+```{R}
+exp(coef(model.fit))
+```
+
+```{R}
+library(ggplot2)
+ggplot(p, aes(Years, Salamanders)) +
+  geom_point() +
+  stat_smooth(method="glm",
+              se=FALSE,
+              method.args = list(family="poisson")) +
+  theme_bw()
+```
+
+```{R}
+years1<-c(12,12,32,20,20,27,23,19,23,26,21,3,8,35,2,19,8,25,33,35)
+result<-exp(years1*0.04451+0.59136)
+years2<-0:25
+lambda=mean(result)
+plot(years2, dpois(years2, lambda=lambda), type='h',xlab="years after burn",ylab = "probability")
+```
