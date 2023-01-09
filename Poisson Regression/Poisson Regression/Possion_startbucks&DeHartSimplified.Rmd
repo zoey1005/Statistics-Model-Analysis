@@ -1,0 +1,358 @@
+---
+title: "Poisson Regression Model"
+author: "Zhuoyu Jiang"
+date: "12/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Question 1
+<p style="text-indent:32px;">
+In the downtown areas of very large cities, it is common for Starbucks locations to be within a block of one another. Why does Starbucks decide to put their locations so close together? One would expect that it has something to do with how busy a current location is. If an order line is long, a potential customer may not even get into line, and instead leave without making a purchase, which is lost business for the store.
+</p>
+<p style="text-indent:32px;">
+Using this as motivation, a Starbucks location in downtown Lincoln, NE, was visited between 8:00a.m. and 8:30a.m. every weekday for five weeks. The number of customers waiting in line was counted at the start of each visit. The collected data are stored within the file `starbucks.csv`, where Count (number of customers) is the response variable and Day (day of week) is the explanatory variable. Using these data, complete the following.
+</p>
+
+<a href= "starbucks.csv" download= "starbucks.csv" >click download *starbucks.csv*</a>
+
+## a.
+
+<p style="text-indent:32px;">
+What is the population of inference? In other words, define the setting to which one would like to extend inferences based on this sample.
+</p>
+
+```{Text}
+The population should be the number of consumers of all the starbucks stores opening during 8:00am to 8:30am every weekday. 
+```
+
+## b.
+
+<p style="text-indent:32px;">
+Construct side-by-side dot plots of the data where the y-axis gives the number of customers and the x-axis is for the day of the week. Describe what information this plot provides regarding the mean number of customers per day. In particular, does it seem plausible that the true mean count is constant across the days? (We recommend putting the factor values given within Day in their chronological order using the factor() function before completing this plot.)
+</p>
+
+```{R}
+library(readr)
+starbuck <- read_csv("~/Desktop/starbucks.csv")
+starbuck$Day[starbuck$Day=="Monday"]<-1
+starbuck$Day[starbuck$Day=="Tuesday"]<-2
+starbuck$Day[starbuck$Day=="Wednesday"]<-3
+starbuck$Day[starbuck$Day=="Thursday"]<-4
+starbuck$Day[starbuck$Day=="Friday"]<-5
+starbuck$Day<-as.factor(starbuck$Day)
+library(ggplot2)
+p<-ggplot(starbuck, aes(x=Day, y=Count)) + 
+  geom_dotplot(binaxis='y', stackdir='center')
+p + stat_summary(fun.y=mean, geom="point", shape=18,
+                 size=3, color="red")
+```
+
+```{text}
+The mean number of consumer has an increasing trend on Monday to Thursday, and decreases on Friday. From the sample, it seems not plausible that the true mean count is constant across weekdays.
+```
+
+## c.
+
+<p style="text-indent:32px;">
+Using a Poisson regression model that allows different mean counts on different
+days, complete the following:
+</p>
+
+### i.
+
+<p style="text-indent:32px;">
+Estimate the model.
+</p>
+
+```{R}
+m.poisson <- glm(starbuck$Count~ starbuck$Day, family=poisson(link = "log"))
+summary(m.poisson)
+```
+The model is $logit(numall) = e^{0.47+0.9651*Tuesday+1.0986*Wednesday+1.3218*Thursday+1.1394*Friday}$
+
+### ii.
+
+<p style="text-indent:32px;">
+Perform a LRT to determine if there is evidence that day of the week affects the number of customers waiting in line.
+</p>
+
+<p>$H_0:$ Day of week will not affect the number of customers waiting in line.<br>
+$H_1:$ Day of week will affect the number of customers waiting in line.</p>
+```{R}
+library(car)
+library(lmtest)
+Anova(m.poisson)
+```
+```{text}
+Since the p-value is 0.004698, which is smaller than 0.05. Thus, we can reject the null hypothesis, and conclude that day of the week affects the number of customers waiting in line.
+```
+
+### iii.
+
+<p style="text-indent:32px;">
+Estimate the ratio of means comparing each pair of the days of the week and compute 95% confidence intervals for these same comparisons. Do this both with and without control for the familywise confidence level for the family of intervals. Interpret the results.
+</p>
+
+```{R}
+library(mcprofile)
+library(car)
+library(multcomp)
+K <- matrix ( data = c (1 , 0 , 0 , 0 , 0 , 
+                        0 , 1 , 0, 0 , 0 ,
+                        0 , 0 , 1, 0 , 0 ,
+                        0 , 0 , 0, 1 , 0 , 
+                        0 , 0 , 0, 0 , 1 
+                        ) , nrow = 5 , ncol = 5 ,
+              byrow = TRUE )
+linear.combo <- mcprofile ( object = m.poisson , CM = K )
+#ci.log.mu <- confint( object = linear.combo , level = 0.95 ,adjust = "none")
+#ci.log.mu
+M<-contrMat(table(starbuck$Day), type = "UmbrellaWilliams")
+
+dmcp <- mcprofile( object = m.poisson , CM = M )
+summary(dmcp)
+exp(confint(dmcp)$confint)
+```
+```{text}
+In the numerical output, we can find that this 95% confidence interval goes from 0.37 to 12.9 mm (lwr and upr in the numerical output provide the CI endpoints). This interval does not contain 0 and so we can now say that there is  significant evidence that Counts in days have different true mean.
+```
+```{R}
+# familywise-control
+m.anova<-aov(starbuck$Count~ starbuck$Day)
+TukeyHSD(m.anova)
+plot(TukeyHSD(m.anova))
+```
+```{text}
+As we can see from the output above, the differences found not be statistically significant. 
+
+In the numerical output, we can find that this 95% family-wise confidence interval goes from -8.3 to 11.65 mm (lwr and upr in the numerical output provide the CI endpoints). This interval contains 0 and so we can now say that there is no significant evidence that Counts in days have different true mean.
+```
+
+### i.v.
+
+<p style="text-indent:32px;">
+Compute the estimated mean number of customers for each day of the week using the model. Compare these estimates to the observed means. Also, compute 95% confidence intervals for the mean number of customers for each day of the week.
+</p>
+
+```{R}
+day1<-exp(m.poisson$coefficients[1])
+day2<-exp(m.poisson$coefficients[1]+m.poisson$coefficients[2])
+day3<-exp(m.poisson$coefficients[1]+m.poisson$coefficients[3])
+day4<-exp(m.poisson$coefficients[1]+m.poisson$coefficients[4])
+day5<-exp(m.poisson$coefficients[1]+m.poisson$coefficients[5])
+
+days<-c(day1,day2,day3,day4,day5)
+df<-aggregate(starbuck$Count, by=list(Category=starbuck$Day), FUN=mean)
+
+df["estimated x"]=days
+df
+```
+
+```{text}
+The estimated means and the observed means are exactly the same.
+```
+
+The 95% confidence interval is
+```{R}
+confint(linear.combo)
+```
+
+## d.
+
+The hypotheses for the LRT in part (c) can be written as $H_0$: $\beta_2$ = $\beta_3$ = $\beta_4$ = $\beta_5$ = 0 VS $H_A$: At least one $\beta_6= 0$. These hypotheses can be equivalently expressed as $H_0$: $\mu_{Monday}$ = $\mu_{Tuesday}$ = $\mu_{Wednesday}$ = $\mu_{Thursday}$ = $\mu_{Friday}$ vs. $H_A$: At least one pair of means is unequal, where µi represents the mean number of customers in line on day i. Discuss why these two ways of writing the hypotheses are equivalent. Write out the proper forms of the Poisson regression model to support your result.
+
+Take an example, $$\mu_{Tuesday}=\mu_{Monday}$$
+$$\frac{\mu_{Tuesday}}{\mu_{Monday}}=1$$
+$$log(\frac{\mu_{Tuesday}}{\mu_{Monday}})=0=\beta_2$$
+Other situations are the same.
+
+Meanwhile, 
+$$\beta_2=0=log(\frac{\mu_{Tuesday}}{\mu_{Monday}})=log(\mu_{Tuesday})-log(\mu_{Monday})$$
+Thus,$$log(\mu_{Tuesday})=log(\mu_{Monday})$$
+and $$\mu_{Tuesday}=\mu_{Monday}$$
+
+# Question 2
+
+<a href= "DeHartSimplified.csv" download= "DeHartSimplified.csv">click download *DeHartSimplified.csv*</a>
+
+<p style="text-indent:32px;">
+Analyzing alcohol consumption as a function of number of positive and negative events for a sample of moderate-to-heavy drinkers during their first Saturday on the study.
+</p>
+
+```{R}
+DHS <- read_csv("~/Desktop/DeHartSimplified.csv")
+DHS.5 <- DHS[DHS$dayweek == 5, c(1,4,7,8)]
+mod.negpos <- glm( formula = numall ~ negevent*posevent , family =poisson(link = "log") , data = DHS.5 )
+summary(mod.negpos)
+```
+
+The estimated model is $$log(\hat\mu)=1.2214-0.2377*negavent-0.23*posevent+0.3804*negavent*posevent $$
+
+The `negavent` and `posevent` variables are negatively correlated with the number of drinks, indicating that subjects with negative or positive events drink less than those without. 
+
+The interaction term `negavent`:`posevent` is positive and significant indicating that as the number of negative events improves, people will increase about 0.3804 drinks for each 1-unit change in positive events.
+
+```{R}
+confint(mod.negpos)
+```
+
+Only the profile LR confidence interval for `negevent`:`posevent` from confint() is 0.0049 < $\mu_3$ < 0.736, quite clearly excluding 0, which is same as the model for Saturday.
+
+```{R}
+library(car)
+Anova(mod.negpos)
+```
+
+The p-value for $\beta_3$ is 0.04714, which is the only p-value smaller than 0.05 among three parameters and as same as the model for Saturday.
+
+All in all, the results for the Saturday model and the results for the Friday model are similar.
+
+# Question 3
+
+<p style="text-indent:32px;">
+The researchers in the alcohol consumption study proposed the following hypothesis (DeHart et al., 2008, p. 529): “We hypothesized that negative interactions with romantic partners would be associated with alcohol consumption (and an increased desire to drink). We predicted that people with low trait self-esteem would drink more on days they experienced more negative relationship interactions compared with days during which they experienced fewer negative relationship interactions. The relation between drinking and negative relationship interactions should not be evident for individuals with high trait self-esteem.” In DeHartSimplified.csv, trait self-esteem (a long-term view of self-worth) is measured by the variable rosn, while the measure of negative relationship interactions is nrel. Conduct an analysis to address this hypothesis, using
+the data for the first Saturday in the study.
+</p>
+
+$H_0:$ The interaction between self-esteem and relationship events has no impact on an individual's total alcoholic beverage consumption
+
+$H_1:$ The interaction between self-esteem and relationship events has an impact or impacts on an individual's total alcoholic beverage consumption
+
+```{R}
+DHS.6 <- DHS[DHS$dayweek == 6,]
+
+#rel.freq <- table(factor(DHS.6$numall,levels=0:21))/length(DHS.6$numall)
+#y <- 0:21
+#prob <- round(dpois(y, mean(DHS.6$numall)), 4)
+#plot(y-0.1, prob, type="h", ylab="Probability", xlab="# of Drinks",main="Observed Data vs Poisson")
+model.poisson  <- glm( numall  ~  nrel * rosn ,family = poisson( link = "log" ),data= DHS.6 )
+summary(model.poisson)
+```
+```{R}
+Anova(model.poisson)
+```
+The `nrel` variable is positively correlated and significant indicating that subjects with negative relationship events drink more than those without. 
+
+Also the interaction term `nerl`:`rosn` is negative and significant indicating that as self esteem improves, the drinking rate will decrease about 0.287 for each 1-unit change in self esteem. In a nutshell, since the p-value is smaller than 0.05, we can reject the null hypothesis and conclude that the interaction between self-esteem and relationship events has an impact or impacts on an individual's total alcoholic beverage consumption.
+
+# Question 4
+
+<p style="text-indent:32px;">
+We will use a model that regresses the number of drinks consumed (`numall`) against positive romantic-relationship events (`prel`), negative romantic-relationship events (`nrel`), age (`age`), trait (`long-term`), self-esteem (`rosn`), state (`short-term`) self-esteem (`state`), and two other variables that we will create below. We will again use Saturday data only. The negevent variable is the average of the ratings across 10 different types of “life events,” one of which is romantic relationships. We want to isolate the relationship events from other events, so create a new variable, negother, as 10*`negevent` − `nrel`. Do the same with positive events to create the variable posother.
+</p>
+
+## a.
+
+<p style="text-indent:32px;">
+Construct plots of the number of drinks consumed against the explanatory variables prel, nrel, posother, negother, age, rosn, and state. Comment on the results: which variables seem to have any relationship with the response?
+</p>
+
+```{R}
+library(ggplot2)
+library(ggpubr)
+DHS.6["posother"]=10*DHS.6$posevent-DHS.6$nrel
+DHS.6["negother"]=10*DHS.6$negevent-DHS.6$prel
+prel_numall<-ggplot(data = DHS.6, aes(x = prel, y = numall)) +geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Positive") + ylab("Drinks Consumed") +ggtitle("Prel VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+neg_numall<-ggplot(data = DHS.6, aes(x = nrel, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Negetive ") + ylab("Drinks Consumed") +ggtitle("Nrel VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+posother_numall<-ggplot(data = DHS.6, aes(x = posother, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Posother") + ylab("Drinks Consumed") +ggtitle("Posother VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+negother_numall<-ggplot(data = DHS.6, aes(x = negother, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Negother") + ylab("Drinks Consumed") +ggtitle("Negother VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+age_numall<-ggplot(data = DHS.6, aes(x = age, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Age") + ylab("Drinks Consumed") +ggtitle("Age VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+rosn_numall<-ggplot(data = DHS.6, aes(x = rosn, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("Rosn") + ylab("Drinks Consumed") +ggtitle("Rosn VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+state_numall<-ggplot(data = DHS.6, aes(x = state, y = numall)) +
+  geom_point(alpha = 0.3) + geom_smooth(method = 'lm') +
+  xlab("State") + ylab("Drinks Consumed") +ggtitle("State VS Drinks")+
+  theme(plot.title=element_text(lineheight=1, face="bold", hjust = 0.5, size = 12))
+
+ggarrange(prel_numall,neg_numall,posother_numall,negother_numall,age_numall,rosn_numall,state_numall, ncol=3, nrow=2, legend = 'none')
+```
+There is not obvious correlationships between the seven explanatory factors and the response. However, the variables like `Posither`, `Negother`, `Age`, `State` may have correaltions in logistic regression model.
+
+## b.
+
+<p style="text-indent:32px;">
+Fit the full model with each of the variables in a linear form. Report the regression parameter estimates, standard errors, and confidence intervals. Do these estimates make sense, considering the plots from part (a)?
+</p>
+
+```{R}
+DHS.6["negother"]=10*DHS.6$negevent - DHS.6$nrel
+DHS.6["posother"]=10*DHS.6$posevent -DHS.6$prel
+DHS.6.2=DHS.6[,c(4,5,6,10,11,13,14,15)]
+model.poisson.2 <- glm( numall  ~  . ,family = poisson( link = "log" ),data= DHS.6.2 )
+summary(model.poisson.2)
+```
+
+```{R}
+confint(model.poisson.2)
+```
+
+<p style="text-indent:32px;">
+Explanatory factors like `nrel`, `age`, `state`, `negother` in the model shows stronger relationships with the number of drinks. The model is a Poisson regression model, which considers the special distribution of the explanatory variables, which makes sense.
+</p>
+
+## c.
+
+<p style="text-indent:32px;">
+Conduct LRTs on the regression parameters to determine which corresponding variables make a significant contribution to the model. State the hypotheses, test statistic, p-value, and use the results to draw conclusions regarding the contributions of each variable to the model.
+</p>
+<p>
+$H_0:$All variables have no significant effect on the model.<br>
+$H_1:$One or more variables have a significant effect on the model.
+</p>
+
+```{R}
+Anova(model.poisson.2)
+```
+<p style="text-indent:32px;">
+The p-values of variables `age`, `state`, `negother` are 0.008809, 0.048860, 0.015278,0.006488,0.000645, which are all smaller than 0.05. Thus, we can reject the null hypothesis and conclude that variables `nrel`, `prel`, `age`, `state`, `negother` have significant effects on the model.
+</p>
+
+## d.
+
+<p style="text-indent:32px;">
+Determine whether any variables except the two negative events variables are needed in the model. To do this, refit the model with only `nrel` and `negother`. Perform a LRT comparing the full model above with this reduced model. State the hypotheses, test statistic and df, p-value, and conclusions.
+</p>
+
+```{R}
+refit.model<-glm( numall  ~  nrel + negother ,family = poisson( link = "log" ),data= DHS.6.2 )
+refit.model.2<-glm( numall  ~  prel + posother +age+rosn+state,family = poisson( link = "log" ),data= DHS.6.2 )
+refit.model.3<-glm( numall  ~  prel + age+state,family = poisson( link = "log" ),data= DHS.6.2 )
+lrtest(model.poisson.2, refit.model.2)
+lrtest(model.poisson.2, refit.model.3)
+```
+<p style="text-indent:32px;">
+As the Anova analysis in question(c), other variables like `state`, `age`, `prel` are likely to be needed in model. 
+</p>
+<p>
+$H_0:$ variables like `state`, `age`, `prel` are not likely to be needed in model.<br>
+$H_1:$ variables like `state`, `age`, `prel` are likely to be needed in model.<br>
+</p>
+<p style="text-indent:32px;">
+As the LRTs results, the p-value of models with variables like `state`, `age`, `prel` are 0.001421 and 0.002461, which are both smaller than 0.05. Thus, we can reject the null hypothesis and conclude that the variables like `state`, `age`, `prel` are likely to be needed in model.
+</p>
