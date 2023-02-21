@@ -1,0 +1,41 @@
+﻿x1,y1
+Open_water,0
+Barren,0
+Deciduous_forest,0
+Evergreen,0.373735443
+Mixed_forest,0
+Bush,0
+Grassland,0
+Pasture,0
+Crops,0
+Woody_wetland,0
+Herbacious wetland,0
+Night_light,0.207627468
+Temperature,0
+Precipitation,0.207627468
+Average_annual_snowfall,0.211009622
+Population,0
+Population_density,0
+Developed_low,0
+Developed_mid,0
+Developed_high,0
+GDP,0.176141335
+Personal_Income,0.276370859
+Ajustment_Residence,0.176141335
+Employment,0.1747742
+Public_school,0.196572271
+Child Abuse Rate,0
+Male Population,0
+Female Population,0
+W2 Enrollment,0
+Developed_open,0
+Personal_income,0.295379522
+Employment,0.181213478
+Public_school,0
+% in Poverty,0.192470581
+Living Alone,0
+Older Adults Living Alone,0
+Abused,0
+Child Abuse Rate,0
+Clinical Care Rank,0.165659294
+Length of Life Rank,0.165277124
